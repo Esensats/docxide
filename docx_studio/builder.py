@@ -95,12 +95,11 @@ class DocumentBuilder:
         self._current_section.children.append(Field(field_code))
         return self
 
-    def add_toc(self) -> 'DocumentBuilder':
-        """Add a Table of Contents field."""
+    def add_toc(self, title: str = None) -> 'DocumentBuilder':
+        """Add a Table of Contents field. Uses 'toc_title' style (no page break)."""
         self._ensure_section()
-        # Add TOC title
-        self.add_heading("СОДЕРЖАНИЕ", level=1)
-        # Add TOC field
+        toc_title = title or "СОДЕРЖАНИЕ"
+        self._current_section.children.append(Paragraph([toc_title], style="toc_title"))
         self._current_section.children.append(Field('TOC \\o "1-3"'))
         return self
 

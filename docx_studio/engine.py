@@ -222,6 +222,16 @@ class LayoutEngine:
 
         # Add paragraph
         para = ctx.add_paragraph(token)
+
+        # Set Word's built-in heading style so TOC can index it
+        style_name = f'Heading {heading.level}'
+        try:
+            para.style = ctx._doc.styles[style_name]
+        except KeyError:
+            pass
+
+        # Re-apply direct formatting (overrides the style's defaults)
+        ctx._apply_paragraph_style(para, token)
         ctx.add_run(para, heading.text, token)
 
     def render_paragraph(self, paragraph, ctx: RenderContext):
@@ -457,22 +467,37 @@ class LayoutEngine:
 
     def render_field(self, field, ctx: RenderContext):
         """Render a dynamic field (PAGE, TOC, etc.)."""
+        # Auto-update fields on document open (Word/LibreOffice)
+        settings_el = ctx._doc.settings.element
+        if settings_el.find(qn('w:updateFields')) is None:
+            update = OxmlElement('w:updateFields')
+            update.set(qn('w:val'), 'true')
+            settings_el.append(update)
+
         token = self.style_sheet.get("body")
         para = ctx.add_paragraph(token)
-        run = para.add_run()
 
-        # Set font
-        ctx._apply_run_style(run, token)
+        def make_run(text=None):
+            run = para.add_run(text)
+            ctx._apply_run_style(run, token)
+            return run
 
-        # Add field
-        fld_char_begin = OxmlElement('w:fldChar')
-        fld_char_begin.set(qn('w:fldCharType'), 'begin')
-        instr = OxmlElement('w:instrText')
-        instr.set(qn('xml:space'), 'preserve')
-        instr.text = f' {field.field_code} '
-        fld_char_end = OxmlElement('w:fldChar')
-        fld_char_end.set(qn('w:fldCharType'), 'end')
-        run._r.append(fld_char_begin)
-        run._r.append(instr)
-        run._r.append(fld_char_end)
+        r1 = make_run()
+        r1._r.append(OxmlElement('w:fldChar'))
+        r1._r[-1].set(qn('w:fldCharType'), 'begin')
+
+        r2 = make_run()
+        r2._r.append(OxmlElement('w:instrText'))
+        r2._r[-1].set(qn('xml:space'), 'preserve')
+        r2._r[-1].text = f' {field.field_code} '
+
+        r3 = make_run()
+        r3._r.append(OxmlElement('w:fldChar'))
+        r3._r[-1].set(qn('w:fldCharType'), 'separate')
+
+        r4 = make_run('')
+
+        r5 = make_run()
+        r5._r.append(OxmlElement('w:fldChar'))
+        r5._r[-1].set(qn('w:fldCharType'), 'end')
 
